@@ -269,12 +269,12 @@ export interface FightStats { atk: number; mag: number; def: number; spd: number
 | `decay` | `0.5 ^ (months_since_observed / 18)` |
 | `rating` | `40 + 59 × (1 − e^(−raw / 12))`, rounded, clamped to 40–99 |
 | `band` | `round(8 / √(artifactCount + 1))` |
-| `OVR` | mean of categories (equal weights v1) |
+| `OVR` | `round(mean of the 8 category ratings)` (equal weights v1), an integer 40–99 |
 | `level` | `floor(√(total_xp / 50)) + 1`, where `total_xp = Σ weight × prov × 100` |
 
 **Fight stat map** (`src/features/fight/stats.ts`)
 
-| Stat | Source category (rating ÷ 10) |
+| Stat | Source category (`round(rating ÷ 10)`, an integer) |
 |---|---|
 | ATK | coding |
 | MAG | ai_fluency |
