@@ -201,6 +201,26 @@ describe("llm client", () => {
     expect((await llm.complete({ ...baseOpts, alias: "fast", mockKey: "retry" })).text).toBe("after retry");
   });
 
+  it("never logs prompts, even with ANTHROPIC_LOG=debug", async () => {
+    const prev = process.env.ANTHROPIC_LOG;
+    process.env.ANTHROPIC_LOG = "debug";
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) =>
+      vi.spyOn(console, m).mockImplementation(() => {}),
+    );
+    try {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(200, messageBody([{ type: "text", text: "ok" }])));
+      const llm = createLLM({ env: { ANTHROPIC_API_KEY: FAKE_KEY, BUDGET_USD_CAP: "10" }, fetch: fetchMock });
+      await llm.complete({ ...baseOpts, alias: "fast", system: "SECRET-SYSTEM-PROMPT" });
+      for (const spy of spies) {
+        for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain("SECRET-SYSTEM-PROMPT");
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+      if (prev === undefined) delete process.env.ANTHROPIC_LOG;
+      else process.env.ANTHROPIC_LOG = prev;
+    }
+  });
+
   it("never writes the key to the console", async () => {
     const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) =>
       vi.spyOn(console, m).mockImplementation(() => {}),

@@ -120,7 +120,14 @@ export function createLLM(deps: LLMDeps = {}) {
     if (client) return client;
     const apiKey = env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new MissingApiKeyError();
-    client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: MAX_RETRIES, fetch: deps.fetch });
+    client = new Anthropic({
+      apiKey,
+      timeout: TIMEOUT_MS,
+      maxRetries: MAX_RETRIES,
+      fetch: deps.fetch,
+      // AC-6: overrides ANTHROPIC_LOG so debug logging can never print prompts.
+      logLevel: "off",
+    });
     return client;
   }
 
