@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Second line of defense (ENV-06 / AGENTS.md rule 6): refuse pushes that update,
+# force-update or delete main/master. Enable once per clone:
+#   git config core.hooksPath .githooks
+# The GitHub ruleset "protections v1" is the server-side backstop.
+set -euo pipefail
+
+zero="0000000000000000000000000000000000000000"
+status=0
+
+# git feeds one line per ref: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${remote_ref:-}" ] && continue
+  branch="${remote_ref#refs/heads/}"
+
+  if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+    echo "pre-push: refusing to push to protected branch '$branch' (AGENTS.md rule 6). Open a PR instead." >&2
+    status=1
+    continue
+  fi
+
+  # Block deletes of remote branches from agent sessions.
+  if [ "$local_sha" = "$zero" ]; then
+    echo "pre-push: refusing to delete remote branch '$branch'." >&2
+    status=1
+    continue
+  fi
+
+  # Block non-fast-forward (force) pushes when the remote tip is known locally.
+  if [ "$remote_sha" != "$zero" ] && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+      echo "pre-push: refusing non-fast-forward push to '$branch' (no force pushes)." >&2
+      status=1
+    fi
+  fi
+done
+
+exit "$status"
