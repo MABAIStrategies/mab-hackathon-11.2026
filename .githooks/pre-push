@@ -19,16 +19,20 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  # Block deletes of remote branches from agent sessions.
+  # Block deletes of remote branches (applies to everyone).
   if [ "$local_sha" = "$zero" ]; then
     echo "pre-push: refusing to delete remote branch '$branch'." >&2
     status=1
     continue
   fi
 
-  # Block non-fast-forward (force) pushes when the remote tip is known locally.
-  if [ "$remote_sha" != "$zero" ] && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
-    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+  # Block non-fast-forward (force) pushes. Fail closed: if the remote tip is not
+  # known locally we cannot prove a fast-forward, so require a fetch first.
+  if [ "$remote_sha" != "$zero" ]; then
+    if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+      echo "pre-push: remote tip of '$branch' is unknown locally; run 'git fetch' and retry." >&2
+      status=1
+    elif ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
       echo "pre-push: refusing non-fast-forward push to '$branch' (no force pushes)." >&2
       status=1
     fi
