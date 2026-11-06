@@ -8,6 +8,7 @@ import {
   LLMRequestError,
   MissingApiKeyError,
   StructuredOutputError,
+  TruncatedOutputError,
   UnknownAliasError,
   createLLM,
   type Alias,
@@ -17,14 +18,18 @@ import { estimateCostUSD } from "./llm-rates";
 const FAKE_KEY = "test-key-not-real";
 const baseOpts = { system: "sys", messages: [{ role: "user" as const, content: "hi" }], maxTokens: 64 };
 
-function messageBody(content: unknown[], usage = { input_tokens: 1000, output_tokens: 100 }) {
+function messageBody(
+  content: unknown[],
+  usage = { input_tokens: 1000, output_tokens: 100 },
+  stop_reason = "end_turn",
+) {
   return {
     id: "msg_test",
     type: "message",
     role: "assistant",
     model: "claude-sonnet-5-5",
     content,
-    stop_reason: "end_turn",
+    stop_reason,
     stop_sequence: null,
     usage: { ...usage, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
   };
@@ -136,6 +141,26 @@ describe("llm client", () => {
         },
       }),
     ).rejects.toBeInstanceOf(StructuredOutputError);
+  });
+
+  it("exposes max_tokens truncation on text and rejects truncated structured output", async () => {
+    const usage = { input_tokens: 10, output_tokens: 64 };
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(messageBody([{ type: "text", text: "partial" }], usage, "max_tokens"))
+      .mockResolvedValueOnce(
+        messageBody([{ type: "tool_use", id: "t1", name: "out", input: { ok: true } }], usage, "max_tokens"),
+      );
+    const llm = createLLM({
+      env: { ANTHROPIC_API_KEY: FAKE_KEY, BUDGET_USD_CAP: "10" },
+      client: { messages: { create } } as never,
+    });
+    const text = await llm.complete({ ...baseOpts, alias: "fast" });
+    expect(text.stopReason).toBe("max_tokens");
+    await expect(
+      llm.complete({ ...baseOpts, alias: "fast", schema: { name: "out", jsonSchema: { type: "object" } } }),
+    ).rejects.toBeInstanceOf(TruncatedOutputError);
+    expect(llm.getSpend()).toBeGreaterThan(0); // truncated calls still cost money
   });
 
   it("blocks calls once the spend estimate reaches the cap", async () => {

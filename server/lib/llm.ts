@@ -36,6 +36,12 @@ export class StructuredOutputError extends Error {
     this.name = "StructuredOutputError";
   }
 }
+export class TruncatedOutputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TruncatedOutputError";
+  }
+}
 export class LLMRequestError extends Error {
   constructor(
     public readonly status: number,
@@ -72,6 +78,8 @@ export interface CompleteResult<T> {
   data: T | undefined;
   usage: TokenUsage;
   costUSD: number;
+  /** "max_tokens" means the text was cut off; callers decide whether partial text is usable. */
+  stopReason: string | null;
 }
 
 type MessagesClient = Pick<Anthropic, "messages">;
@@ -91,6 +99,7 @@ const RETRYABLE = (status: number) => status === 408 || status === 409 || status
 
 interface MockResponse {
   text?: string;
+  stopReason?: string;
   toolInput?: unknown;
   usage?: TokenUsage;
   error?: { status: number; message?: string };
@@ -138,6 +147,13 @@ export function createLLM(deps: LLMDeps = {}) {
     return MODELS[alias as Alias];
   }
 
+  function assertNotTruncated(schema: OutputSchema<unknown> | undefined, stopReason: string | null) {
+    // A cut-off tool call can still parse; never trust structured output that hit the token limit.
+    if (schema && stopReason === "max_tokens") {
+      throw new TruncatedOutputError(`"${schema.name}" output hit maxTokens before finishing; raise maxTokens.`);
+    }
+  }
+
   function parseToolInput<T>(schema: OutputSchema<T>, input: unknown): T {
     if (input === undefined) throw new StructuredOutputError(`Model returned no "${schema.name}" tool call.`);
     try {
@@ -178,8 +194,10 @@ export function createLLM(deps: LLMDeps = {}) {
     const usage = response.usage ?? { input_tokens: 0, output_tokens: 0 };
     const costUSD = estimateCostUSD(model, usage);
     spend += costUSD;
+    const stopReason = response.stopReason ?? "end_turn";
+    assertNotTruncated(opts.schema, stopReason);
     const data = opts.schema ? parseToolInput(opts.schema, response.toolInput) : undefined;
-    return { model, text: response.text ?? "", data, usage, costUSD };
+    return { model, text: response.text ?? "", data, usage, costUSD, stopReason };
   }
 
   async function complete<T = unknown>(opts: CompleteOptions<T>): Promise<CompleteResult<T>> {
@@ -232,8 +250,10 @@ export function createLLM(deps: LLMDeps = {}) {
     const toolInput = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === opts.schema?.name,
     )?.input;
+    const stopReason = response.stop_reason ?? null;
+    assertNotTruncated(opts.schema, stopReason);
     const data = opts.schema ? parseToolInput(opts.schema, toolInput) : undefined;
-    return { model, text, data, usage, costUSD };
+    return { model, text, data, usage, costUSD, stopReason };
   }
 
   return {
