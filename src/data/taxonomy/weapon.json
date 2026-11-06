@@ -1,0 +1,114 @@
+[
+  {
+    "id": "ai_fluency.local_inference",
+    "tree": "weapon",
+    "label": "Local Inference",
+    "category": "ai_fluency",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "ai_fluency.model_quantization",
+    "tree": "weapon",
+    "label": "Model Quantization",
+    "category": "ai_fluency",
+    "tier": 2,
+    "prereqs": ["ai_fluency.local_inference"]
+  },
+  {
+    "id": "ai_fluency.gpu_inference",
+    "tree": "weapon",
+    "label": "GPU Inference",
+    "category": "ai_fluency",
+    "tier": 3,
+    "prereqs": ["ai_fluency.model_quantization"]
+  },
+  {
+    "id": "harness_engineering.inference_serving",
+    "tree": "weapon",
+    "label": "Inference Serving",
+    "category": "harness_engineering",
+    "tier": 2,
+    "prereqs": []
+  },
+  {
+    "id": "harness_engineering.local_agent_rig",
+    "tree": "weapon",
+    "label": "Local Agent Rig",
+    "category": "harness_engineering",
+    "tier": 3,
+    "prereqs": ["harness_engineering.inference_serving"]
+  },
+  {
+    "id": "deploy_devops.workstation_build",
+    "tree": "weapon",
+    "label": "Workstation Build",
+    "category": "deploy_devops",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "deploy_devops.container_runtime",
+    "tree": "weapon",
+    "label": "Container Runtime",
+    "category": "deploy_devops",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "deploy_devops.gpu_workstation",
+    "tree": "weapon",
+    "label": "GPU Workstation",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": ["deploy_devops.workstation_build"]
+  },
+  {
+    "id": "deploy_devops.cloud_gpu",
+    "tree": "weapon",
+    "label": "Cloud GPU",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": []
+  },
+  {
+    "id": "deploy_devops.serverless_target",
+    "tree": "weapon",
+    "label": "Serverless Target",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": ["deploy_devops.container_runtime"]
+  },
+  {
+    "id": "deploy_devops.edge_device",
+    "tree": "weapon",
+    "label": "Edge Device",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": []
+  },
+  {
+    "id": "deploy_devops.gpu_containers",
+    "tree": "weapon",
+    "label": "GPU Containers",
+    "category": "deploy_devops",
+    "tier": 3,
+    "prereqs": ["deploy_devops.container_runtime", "deploy_devops.gpu_workstation"]
+  },
+  {
+    "id": "deploy_devops.edge_inference",
+    "tree": "weapon",
+    "label": "Edge Inference",
+    "category": "deploy_devops",
+    "tier": 3,
+    "prereqs": ["deploy_devops.edge_device"]
+  },
+  {
+    "id": "deploy_devops.multi_gpu_rig",
+    "tree": "weapon",
+    "label": "Multi-GPU Rig",
+    "category": "deploy_devops",
+    "tier": 4,
+    "prereqs": ["deploy_devops.gpu_workstation"]
+  }
+]

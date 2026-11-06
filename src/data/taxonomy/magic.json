@@ -1,0 +1,322 @@
+[
+  {
+    "id": "ai_fluency.prompting_basics",
+    "tree": "magic",
+    "label": "Prompting Basics",
+    "category": "ai_fluency",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "ai_fluency.context_engineering",
+    "tree": "magic",
+    "label": "Context Engineering",
+    "category": "ai_fluency",
+    "tier": 2,
+    "prereqs": ["ai_fluency.prompting_basics"]
+  },
+  {
+    "id": "ai_fluency.structured_outputs",
+    "tree": "magic",
+    "label": "Structured Outputs",
+    "category": "ai_fluency",
+    "tier": 2,
+    "prereqs": ["ai_fluency.prompting_basics"]
+  },
+  {
+    "id": "ai_fluency.rag_patterns",
+    "tree": "magic",
+    "label": "RAG Patterns",
+    "category": "ai_fluency",
+    "tier": 3,
+    "prereqs": ["ai_fluency.context_engineering"]
+  },
+  {
+    "id": "agentic_frameworks.tool_use_loops",
+    "tree": "magic",
+    "label": "Tool-Use Loops",
+    "category": "agentic_frameworks",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "agentic_frameworks.agent_memory",
+    "tree": "magic",
+    "label": "Agent Memory",
+    "category": "agentic_frameworks",
+    "tier": 2,
+    "prereqs": ["agentic_frameworks.tool_use_loops"]
+  },
+  {
+    "id": "agentic_frameworks.mcp_servers",
+    "tree": "magic",
+    "label": "MCP Servers",
+    "category": "agentic_frameworks",
+    "tier": 2,
+    "prereqs": ["agentic_frameworks.tool_use_loops"]
+  },
+  {
+    "id": "agentic_frameworks.multi_agent_orchestration",
+    "tree": "magic",
+    "label": "Multi-Agent Orchestration",
+    "category": "agentic_frameworks",
+    "tier": 3,
+    "prereqs": ["agentic_frameworks.tool_use_loops", "agentic_frameworks.mcp_servers"]
+  },
+  {
+    "id": "agentic_frameworks.autonomous_agents",
+    "tree": "magic",
+    "label": "Autonomous Agents",
+    "category": "agentic_frameworks",
+    "tier": 4,
+    "prereqs": ["agentic_frameworks.multi_agent_orchestration", "agentic_frameworks.agent_memory"]
+  },
+  {
+    "id": "harness_engineering.prompt_contracts",
+    "tree": "magic",
+    "label": "Prompt Contracts",
+    "category": "harness_engineering",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "harness_engineering.evals",
+    "tree": "magic",
+    "label": "Evals",
+    "category": "harness_engineering",
+    "tier": 2,
+    "prereqs": ["harness_engineering.prompt_contracts"]
+  },
+  {
+    "id": "harness_engineering.subagents_worktrees",
+    "tree": "magic",
+    "label": "Subagents & Worktrees",
+    "category": "harness_engineering",
+    "tier": 2,
+    "prereqs": ["harness_engineering.prompt_contracts"]
+  },
+  {
+    "id": "harness_engineering.agent_hooks",
+    "tree": "magic",
+    "label": "Agent Hooks",
+    "category": "harness_engineering",
+    "tier": 3,
+    "prereqs": ["harness_engineering.subagents_worktrees"]
+  },
+  {
+    "id": "harness_engineering.review_loops",
+    "tree": "magic",
+    "label": "Automated Review Loops",
+    "category": "harness_engineering",
+    "tier": 4,
+    "prereqs": ["harness_engineering.evals", "harness_engineering.agent_hooks"]
+  },
+  {
+    "id": "coding.typescript",
+    "tree": "magic",
+    "label": "TypeScript",
+    "category": "coding",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "coding.python",
+    "tree": "magic",
+    "label": "Python",
+    "category": "coding",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "coding.react",
+    "tree": "magic",
+    "label": "React",
+    "category": "coding",
+    "tier": 2,
+    "prereqs": ["coding.typescript"]
+  },
+  {
+    "id": "coding.testing",
+    "tree": "magic",
+    "label": "Automated Testing",
+    "category": "coding",
+    "tier": 2,
+    "prereqs": ["coding.typescript"]
+  },
+  {
+    "id": "coding.api_design",
+    "tree": "magic",
+    "label": "API Design",
+    "category": "coding",
+    "tier": 3,
+    "prereqs": ["coding.testing"]
+  },
+  {
+    "id": "safety_compliance.responsible_ai",
+    "tree": "magic",
+    "label": "Responsible AI",
+    "category": "safety_compliance",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "safety_compliance.pii_redaction",
+    "tree": "magic",
+    "label": "PII Redaction",
+    "category": "safety_compliance",
+    "tier": 2,
+    "prereqs": ["safety_compliance.responsible_ai"]
+  },
+  {
+    "id": "safety_compliance.guardrails",
+    "tree": "magic",
+    "label": "Guardrails",
+    "category": "safety_compliance",
+    "tier": 2,
+    "prereqs": ["safety_compliance.responsible_ai"]
+  },
+  {
+    "id": "safety_compliance.compliance_frameworks",
+    "tree": "magic",
+    "label": "Compliance Frameworks",
+    "category": "safety_compliance",
+    "tier": 3,
+    "prereqs": ["safety_compliance.pii_redaction"]
+  },
+  {
+    "id": "safety_compliance.red_teaming",
+    "tree": "magic",
+    "label": "Red Teaming",
+    "category": "safety_compliance",
+    "tier": 3,
+    "prereqs": ["safety_compliance.guardrails"]
+  },
+  {
+    "id": "cybersecurity.secrets_management",
+    "tree": "magic",
+    "label": "Secrets Management",
+    "category": "cybersecurity",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "cybersecurity.auth_identity",
+    "tree": "magic",
+    "label": "Auth & Identity",
+    "category": "cybersecurity",
+    "tier": 2,
+    "prereqs": ["cybersecurity.secrets_management"]
+  },
+  {
+    "id": "cybersecurity.threat_modeling",
+    "tree": "magic",
+    "label": "Threat Modeling",
+    "category": "cybersecurity",
+    "tier": 2,
+    "prereqs": ["cybersecurity.secrets_management"]
+  },
+  {
+    "id": "cybersecurity.prompt_injection_defense",
+    "tree": "magic",
+    "label": "Prompt Injection Defense",
+    "category": "cybersecurity",
+    "tier": 3,
+    "prereqs": ["cybersecurity.threat_modeling"]
+  },
+  {
+    "id": "cybersecurity.ssrf_defense",
+    "tree": "magic",
+    "label": "SSRF Defense",
+    "category": "cybersecurity",
+    "tier": 3,
+    "prereqs": ["cybersecurity.auth_identity"]
+  },
+  {
+    "id": "database_integrations.sql_fundamentals",
+    "tree": "magic",
+    "label": "SQL Fundamentals",
+    "category": "database_integrations",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "database_integrations.postgres",
+    "tree": "magic",
+    "label": "Postgres",
+    "category": "database_integrations",
+    "tier": 2,
+    "prereqs": ["database_integrations.sql_fundamentals"]
+  },
+  {
+    "id": "database_integrations.supabase",
+    "tree": "magic",
+    "label": "Supabase",
+    "category": "database_integrations",
+    "tier": 3,
+    "prereqs": ["database_integrations.postgres"]
+  },
+  {
+    "id": "database_integrations.neon",
+    "tree": "magic",
+    "label": "Neon",
+    "category": "database_integrations",
+    "tier": 3,
+    "prereqs": ["database_integrations.postgres"]
+  },
+  {
+    "id": "database_integrations.vector_search",
+    "tree": "magic",
+    "label": "Vector Search",
+    "category": "database_integrations",
+    "tier": 3,
+    "prereqs": ["database_integrations.postgres"]
+  },
+  {
+    "id": "deploy_devops.git_workflows",
+    "tree": "magic",
+    "label": "Git Workflows",
+    "category": "deploy_devops",
+    "tier": 1,
+    "prereqs": []
+  },
+  {
+    "id": "deploy_devops.docker",
+    "tree": "magic",
+    "label": "Docker",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": ["deploy_devops.git_workflows"]
+  },
+  {
+    "id": "deploy_devops.ci_cd",
+    "tree": "magic",
+    "label": "CI/CD",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": ["deploy_devops.git_workflows"]
+  },
+  {
+    "id": "deploy_devops.vercel",
+    "tree": "magic",
+    "label": "Vercel",
+    "category": "deploy_devops",
+    "tier": 2,
+    "prereqs": ["deploy_devops.git_workflows"]
+  },
+  {
+    "id": "deploy_devops.cloud_run",
+    "tree": "magic",
+    "label": "Cloud Run",
+    "category": "deploy_devops",
+    "tier": 3,
+    "prereqs": ["deploy_devops.docker"]
+  },
+  {
+    "id": "deploy_devops.kubernetes",
+    "tree": "magic",
+    "label": "Kubernetes",
+    "category": "deploy_devops",
+    "tier": 3,
+    "prereqs": ["deploy_devops.docker"]
+  }
+]
