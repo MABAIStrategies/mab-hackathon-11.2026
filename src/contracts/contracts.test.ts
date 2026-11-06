@@ -2,12 +2,15 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   ClassifierOutputSchema,
+  EvidenceObjectSchema,
   EvidenceSchema,
   FightStatsSchema,
   LevelUpRequestSchema,
   PlayerSchema,
   RigProbeSchema,
   SkillNodeSchema,
+  type CategoryScore,
+  type CategoryScoreParsed,
   type ClassifierOutput,
   type ClassifierOutputParsed,
   type Evidence,
@@ -16,6 +19,8 @@ import {
   type FightStatsParsed,
   type LevelUpRequest,
   type LevelUpRequestParsed,
+  type LevelUpResponse,
+  type LevelUpResponseParsed,
   type Player,
   type PlayerParsed,
   type RigProbe,
@@ -39,15 +44,24 @@ const evidence: Evidence = {
 };
 
 describe("type ↔ schema sync", () => {
-  it("parsed types are assignable to the frozen interfaces and back", () => {
-    expectTypeOf<EvidenceParsed>().toMatchTypeOf<Evidence>();
-    expectTypeOf<Evidence>().toMatchTypeOf<EvidenceParsed>();
+  // Exact equality both ways: any drift between types.ts and schemas.ts fails typecheck.
+  it("every parsed type equals its frozen interface", () => {
+    expectTypeOf<EvidenceParsed>().toEqualTypeOf<Evidence>();
     expectTypeOf<SkillNodeParsed>().toEqualTypeOf<SkillNode>();
+    expectTypeOf<CategoryScoreParsed>().toEqualTypeOf<CategoryScore>();
     expectTypeOf<PlayerParsed>().toEqualTypeOf<Player>();
     expectTypeOf<FightStatsParsed>().toEqualTypeOf<FightStats>();
     expectTypeOf<ClassifierOutputParsed>().toEqualTypeOf<ClassifierOutput>();
-    expectTypeOf<LevelUpRequestParsed>().toMatchTypeOf<LevelUpRequest>();
-    expectTypeOf<RigProbeParsed>().toMatchTypeOf<RigProbe>();
+    expectTypeOf<LevelUpRequestParsed>().toEqualTypeOf<LevelUpRequest>();
+    expectTypeOf<LevelUpResponseParsed>().toEqualTypeOf<LevelUpResponse>();
+    // hostname?: never exists only to forbid the field at compile time; the schema forbids it at runtime.
+    expectTypeOf<RigProbeParsed>().toEqualTypeOf<Omit<RigProbe, "hostname">>();
+  });
+
+  it("EvidenceObjectSchema supports pick/omit/partial for other lanes", () => {
+    expect(() => EvidenceObjectSchema.pick({ id: true, title: true })).not.toThrow();
+    expect(() => EvidenceObjectSchema.omit({ model_id: true })).not.toThrow();
+    expect(() => EvidenceObjectSchema.partial()).not.toThrow();
   });
 });
 
@@ -146,5 +160,9 @@ describe("other schemas", () => {
     expect(RigProbeSchema.safeParse(probe).success).toBe(true);
     expect(RigProbeSchema.safeParse({ ...probe, hostname: "Colonel_Cluster" }).success).toBe(false);
     expect(RigProbeSchema.safeParse({ ...probe, serial: "X123" }).success).toBe(false);
+    const { probedAt: _omit, ...withoutDate } = probe;
+    void _omit;
+    expect(RigProbeSchema.safeParse(withoutDate).success).toBe(true);
+    expect(RigProbeSchema.safeParse({ ...probe, cpu: { ...probe.cpu, threads: 32 } }).success).toBe(true);
   });
 });

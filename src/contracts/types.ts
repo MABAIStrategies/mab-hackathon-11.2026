@@ -89,10 +89,11 @@ export interface ClassifierOutput {
 
 /** Hardware probe output. No hostname, username, serials, UUIDs, MACs or IPs. */
 export interface RigProbe {
-  cpu: { brand: string; cores: number };
+  cpu: { brand: string; cores: number; threads?: number };
   gpu: { model: string; vramGb: number | null }[];
   ramGb: number;
   os: string;
-  probedAt: string;
+  /** ISO date or datetime of the probe run. */
+  probedAt?: string;
   hostname?: never;
 }

@@ -19,7 +19,8 @@ export const CategorySchema = z.enum([
   "deploy_devops",
 ]);
 
-export const EvidenceSchema = z
+/** Plain object schema (no cross-field rules), safe for .pick/.omit/.partial in other lanes. */
+export const EvidenceObjectSchema = z
   .object({
     id: nonEmpty,
     artifact_url: httpsUrl.nullable(),
@@ -33,18 +34,28 @@ export const EvidenceSchema = z
     redacted: z.boolean(),
     title: nonEmpty,
   })
-  .strict()
-  .superRefine((e, ctx) => {
-    if (e.classified_by === "llm" && !e.model_id) {
-      ctx.addIssue({ code: "custom", path: ["model_id"], message: "model_id is required when classified_by is llm" });
-    }
-    if (e.classified_by !== "llm" && e.model_id !== undefined) {
-      ctx.addIssue({ code: "custom", path: ["model_id"], message: "model_id is only set when classified_by is llm" });
-    }
-    if (e.type === "claim" && e.provenance !== "self_claimed") {
-      ctx.addIssue({ code: "custom", path: ["provenance"], message: "a claim is always self_claimed" });
-    }
-  });
+  .strict();
+
+/** Full Evidence validation: the object shape plus the §7 cross-field rules. */
+export const EvidenceSchema = EvidenceObjectSchema.superRefine((e, ctx) => {
+  if (e.classified_by === "llm" && !e.model_id) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["model_id"],
+      message: "model_id is required when classified_by is llm",
+    });
+  }
+  if (e.classified_by !== "llm" && e.model_id !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["model_id"],
+      message: "model_id is only set when classified_by is llm",
+    });
+  }
+  if (e.type === "claim" && e.provenance !== "self_claimed") {
+    ctx.addIssue({ code: "custom", path: ["provenance"], message: "a claim is always self_claimed" });
+  }
+});
 
 export const SkillNodeSchema = z
   .object({
@@ -102,11 +113,17 @@ export const ClassifierOutputSchema = z
 
 export const RigProbeSchema = z
   .object({
-    cpu: z.object({ brand: nonEmpty, cores: z.number().int().min(1) }).strict(),
+    cpu: z
+      .object({
+        brand: nonEmpty,
+        cores: z.number().int().min(1),
+        threads: z.number().int().min(1).optional(),
+      })
+      .strict(),
     gpu: z.array(z.object({ model: nonEmpty, vramGb: z.number().min(0).nullable() }).strict()),
     ramGb: z.number().min(0),
     os: nonEmpty,
-    probedAt: isoDate,
+    probedAt: isoDate.optional(),
   })
   .strict(); // .strict() rejects hostname and any other identifying field.
 
