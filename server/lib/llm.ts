@@ -3,7 +3,21 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  BudgetExceededError,
+  MockInProductionError,
+  PausedError,
+  assertBudget,
+  assertMockAllowed,
+  assertNotKilled,
+  budgetStatus,
+  parseCap,
+  type BudgetStatus,
+} from "./budget";
 import { estimateCostUSD, type ModelId, type TokenUsage } from "./llm-rates";
+
+// Re-exported so existing importers of llm.ts keep working (ENV-10 moved these to budget.ts).
+export { BudgetExceededError, MockInProductionError, PausedError };
 
 export const MODELS = {
   classify: "claude-sonnet-5-5",
@@ -22,12 +36,6 @@ export class MissingApiKeyError extends Error {
   constructor() {
     super("ANTHROPIC_API_KEY is not set. Set it in server env, or set LLM_MOCK=1 for tests.");
     this.name = "MissingApiKeyError";
-  }
-}
-export class BudgetExceededError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BudgetExceededError";
   }
 }
 export class StructuredOutputError extends Error {
@@ -80,6 +88,8 @@ export interface CompleteResult<T> {
   costUSD: number;
   /** "max_tokens" means the text was cut off; callers decide whether partial text is usable. */
   stopReason: string | null;
+  /** Spend vs cap after this call. "warn" = at least 80% of the cap; the call still ran. Mock mode is always "ok". */
+  budgetStatus: BudgetStatus;
 }
 
 type MessagesClient = Pick<Anthropic, "messages">;
@@ -91,9 +101,15 @@ export interface LLMDeps {
   /** Passed to the Anthropic SDK (tests use it to simulate HTTP responses). */
   fetch?: typeof fetch;
   fixturesDir?: string;
+  /** Overall deadline per complete() call, covering every attempt plus backoff. Default 45s. */
+  deadlineMs?: number;
 }
 
 const TIMEOUT_MS = 20_000;
+// Hard ceiling for one complete() call across all attempts and backoff sleeps. It also caps any
+// server `retry-after`: the SDK's backoff sleep wakes when the signal aborts (verified in
+// @anthropic-ai/sdk 1.5.0 retryRequest/sleep), so a long retry-after cannot stall past this.
+const DEADLINE_MS = 45_000;
 const MAX_RETRIES = 2;
 const RETRYABLE = (status: number) => status === 408 || status === 409 || status === 429 || status >= 500;
 
@@ -131,23 +147,10 @@ export function createLLM(deps: LLMDeps = {}) {
     return client;
   }
 
-  function capUSD(): number {
-    const raw = env.BUDGET_USD_CAP;
-    const cap = raw === undefined || raw.trim() === "" ? Number.NaN : Number(raw);
-    return cap;
-  }
-
-  function assertBudget() {
-    if (isMock()) return;
-    const cap = capUSD();
-    // Fail closed: no valid cap means no live calls.
-    if (!Number.isFinite(cap) || cap <= 0) {
-      throw new BudgetExceededError("BUDGET_USD_CAP is not set to a positive number; live LLM calls are blocked.");
-    }
-    if (spend >= cap) {
-      throw new BudgetExceededError(`Runtime LLM spend estimate reached the cap of $${cap}.`);
-    }
-  }
+  const currentStatus = (): BudgetStatus => {
+    const cap = parseCap(env);
+    return cap === null ? "ok" : budgetStatus(spend, cap);
+  };
 
   function resolveModel(alias: string): ModelId {
     if (!Object.hasOwn(MODELS, alias)) throw new UnknownAliasError(alias);
@@ -157,7 +160,9 @@ export function createLLM(deps: LLMDeps = {}) {
   function assertNotTruncated(schema: OutputSchema<unknown> | undefined, stopReason: string | null) {
     // A cut-off tool call can still parse; never trust structured output that hit the token limit.
     if (schema && stopReason === "max_tokens") {
-      throw new TruncatedOutputError(`"${schema.name}" output hit maxTokens before finishing; raise maxTokens.`);
+      throw new TruncatedOutputError(
+        `"${schema.name}" output hit maxTokens before finishing; raise maxTokens.`,
+      );
     }
   }
 
@@ -173,7 +178,8 @@ export function createLLM(deps: LLMDeps = {}) {
   }
 
   function loadFixture(alias: Alias, key: string): MockFixture {
-    const dir = deps.fixturesDir ?? env.LLM_FIXTURES_DIR ?? path.join(process.cwd(), "tests", "fixtures", "llm");
+    const dir =
+      deps.fixturesDir ?? env.LLM_FIXTURES_DIR ?? path.join(process.cwd(), "tests", "fixtures", "llm");
     const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
     const file = path.join(dir, `${alias}.${safeKey}.json`);
     try {
@@ -204,13 +210,16 @@ export function createLLM(deps: LLMDeps = {}) {
     const stopReason = response.stopReason ?? "end_turn";
     assertNotTruncated(opts.schema, stopReason);
     const data = opts.schema ? parseToolInput(opts.schema, response.toolInput) : undefined;
-    return { model, text: response.text ?? "", data, usage, costUSD, stopReason };
+    return { model, text: response.text ?? "", data, usage, costUSD, stopReason, budgetStatus: "ok" };
   }
 
   async function complete<T = unknown>(opts: CompleteOptions<T>): Promise<CompleteResult<T>> {
+    // Kill switch and mock guard run first, at call time, before any network or fixture access.
+    assertNotKilled(env);
+    assertMockAllowed(env);
     const model = resolveModel(opts.alias);
     if (isMock()) return completeMock(opts, model);
-    assertBudget();
+    assertBudget(env, spend);
     const api = getClient();
 
     const tools = opts.schema
@@ -223,22 +232,41 @@ export function createLLM(deps: LLMDeps = {}) {
         ]
       : undefined;
 
+    // One deadline for the whole call. The signal is handed to the SDK (aborts in-flight requests and
+    // wakes backoff sleeps, which caps retry-after); the race also bounds injected clients that ignore it.
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new LLMRequestError(504, "Claude API deadline exceeded"));
+      }, deps.deadlineMs ?? DEADLINE_MS);
+    });
     let response: Anthropic.Message;
     try {
-      response = await api.messages.create({
-        model,
-        max_tokens: opts.maxTokens,
-        system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
-        messages: opts.messages,
-        ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
-        ...(tools && opts.schema ? { tools, tool_choice: { type: "tool", name: opts.schema.name } } : {}),
-      });
+      const request = api.messages.create(
+        {
+          model,
+          max_tokens: opts.maxTokens,
+          system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+          messages: opts.messages,
+          ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+          ...(tools && opts.schema ? { tools, tool_choice: { type: "tool", name: opts.schema.name } } : {}),
+        },
+        { signal: controller.signal },
+      );
+      request.catch(() => {}); // the deadline may win the race; avoid an unhandled rejection
+      response = await Promise.race([request, deadline]);
     } catch (err) {
+      if (err instanceof LLMRequestError) throw err;
+      if (controller.signal.aborted) throw new LLMRequestError(504, "Claude API deadline exceeded");
       // Never surface request bodies or keys; status + SDK message only.
       if (err instanceof Anthropic.APIError) {
         throw new LLMRequestError(err.status ?? 500, `Claude API error ${err.status ?? ""}`.trim());
       }
       throw err;
+    } finally {
+      clearTimeout(timer);
     }
 
     const usage: TokenUsage = {
@@ -260,7 +288,7 @@ export function createLLM(deps: LLMDeps = {}) {
     const stopReason = response.stop_reason ?? null;
     assertNotTruncated(opts.schema, stopReason);
     const data = opts.schema ? parseToolInput(opts.schema, toolInput) : undefined;
-    return { model, text, data, usage, costUSD, stopReason };
+    return { model, text, data, usage, costUSD, stopReason, budgetStatus: currentStatus() };
   }
 
   return {
